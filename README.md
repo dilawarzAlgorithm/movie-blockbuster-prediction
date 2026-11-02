@@ -19,7 +19,7 @@ Using a dataset of 5,000 films (spanning 1980–2024), the binary target variabl
 - **`1` (Blockbuster)**: If Box Office Revenue exceeds **3× Production Budget** AND Revenue is greater than **$100 Million**.
 - **`0` (Non-Blockbuster)**: Otherwise.
 
-The dataset has a realistic class imbalance (~17% blockbuster hit rate).
+The dataset has a realistic class imbalance (~13% blockbuster hit rate).
 
 ---
 
@@ -35,7 +35,37 @@ The dataset has a realistic class imbalance (~17% blockbuster hit rate).
 
 **Credits** This dataset was taken from Kaggle - [What Makes a Movie a Blockbuster? 5,000 Films](https://www.kaggle.com/datasets/vedauv/what-makes-a-movie-a-blockbuster-5000-films)
 
-> ⚠️ **Data Leakage Prevention**: Features calculated _after_ release (such as `revenue_usd`, `profit_usd`, and `roi`) are strictly dropped during model training to ensure realistic prediction.
+> ⚠️ **Data Leakage Prevention**: Features calculated _after_ release (such as `revenue_usd`, `profit_usd`, `roi`, `rating`, `vote_count` and `popularity`) are strictly dropped during model training to ensure realistic prediction.
+
+---
+
+## 🔍 Exploratory Data Analysis & Feature Engineering
+
+Key insights from EDA:
+
+- **Budget Skewness**: `budget_usd` spans several orders of magnitude; log transformation (`log_budget`) was applied to normalize feature distribution.
+- **Feature Engineering**:
+  - `log_budget`: **_log(1 + budget_usd)_**
+  - `budget_per_min`: Financial intensity measure calculated as **_budget_usd/runtime_min_**.
+
+Preprocessing Pipeline:
+
+- Categorical encoding via `DictVectorizer`.
+- Feature scaling via `StandardScaler` for distance/linear models.
+- Stratified 60% / 20% / 20% split for train, validation, and test datasets.
+
+---
+
+## 🏆 Model Training & Comparison
+
+Models were evaluated using **ROC-AUC** due to class imbalance:
+
+| Model                   | Hyperparameters / Notes                                                                              | Validation ROC-AUC |
+| :---------------------- | :--------------------------------------------------------------------------------------------------- | :----------------- |
+| **Logistic Regression** | `class_weight='balanced'`, scaled features                                                           | ~0.841             |
+| **Decision Tree**       | Tuned `max_depth` (5) & `min_samples_leaf` (1)                                                       | ~0.805             |
+| **Random Forest**       | Tuned `n_estimators` (106), `max_depth` (5), `min_samples_leaf` (1), `class_weight='balanced'`       | ~0.840             |
+| **XGboost**             | Tuned `eta` (0.1), `max_depth` (3), `min_child_weight` (1), `gamma` (7.0), `class_weight='balanced'` | **~0.848**         |
 
 ---
 
