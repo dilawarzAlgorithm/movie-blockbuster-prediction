@@ -79,11 +79,38 @@ movie-blockbuster-prediction/
 │   └── movie_blockbuster_prediction/
 ├── Dockerfile                      # Containerization instructions
 ├── notebook.ipynb                  # Complete EDA, feature engineering & model comparison
-├── predict.py                      # Web service serving POST /predict API
+├── predict.py                      # Core inference logic module (loads model.bin)
 ├── pyproject.toml                  # Project configuration & dependency specifications
 ├── README.md                       # Project documentation
-├── train.py                        # Script to train final model & save artifacts
+├── serve.py                        # FastAPI web application service
+├── train.py                        # Script to train final model & save artifacts (model.bin)
 └── uv.lock                         # Lockfile for 100% reproducible environments
+```
+
+---
+
+## 📐 System Architecture
+
+```mermaid
+flowchart LR
+    %% Subgraph 1: Training Pipeline
+    subgraph TrainStep ["⚙️ 1. Offline Training Phase"]
+        direction LR
+        CSV[("data/movie_blockbusters.csv")] -->|Loads & Cleans| TrainScript["train.py"]
+        TrainScript -->|Trains XGBoost| ModelFile["model.bin"]
+    end
+
+    %% Subgraph 2: Online Serving Pipeline
+    subgraph ServeStep ["🚀 2. Online Web Service"]
+        direction LR
+        Server["serve.py (FastAPI)"] -->|Validates Input| PredictScript["predict.py"]
+        PredictScript -->|Runs Inference| Server
+    end
+
+    %% External Interactions & Connections
+    ModelFile -.- |Loaded on Startup| PredictScript
+    Client["👤 User / Client"] -->|POST /predict| Server
+    Server -->|Returns JSON| Client
 ```
 
 ---
@@ -130,17 +157,80 @@ uv run python train.py
 Start the prediction web service server:
 
 ```bash
-uv run python predict.py
+uv run python serve.py
 ```
 
 The server will start running on `http://localhost:9696`.
 
-### 5. Running JupyterLab
+### 5. API Testing & Examples
+
+**Health Check Endpoint (`GET /health`)**
+
+```bash
+curl -X GET http://localhost:9696/health
+```
+
+Response:
+
+```bash
+{"status": "OK"}
+```
+
+**Prediction Endpoint (`POST /predict`)**
+
+```bash
+curl -X POST http://localhost:9696/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "year": 1997,
+    "decade": 1990,
+    "genre": "Action",
+    "runtime_min": 138,
+    "budget_usd": 140242806.18
+  }'
+```
+
+Expected JSON Response:
+
+```bash
+{
+  "blockbuster_probability": 0.7839,
+  "is_blockbuster": true
+}
+```
+
+> Interactive Documentation: Interactive OpenAPI Swagger documentation can also be accessed by visiting http://localhost:9696/docs in your browser.
+
+### 6. Running JupyterLab
 
 To launch and run `notebook.ipynb` within JupyterLab using the `uv` virtual environment:
 
 ```bash
 uv run jupyter lab
+```
+
+---
+
+## 🐳 Docker Containerization
+
+To run the web service in an isolated production container using Docker:
+
+1. **Build the Docker Image**
+
+```bash
+docker build -t blockbuster-prediction-service .
+```
+
+2. **Run the Docker Container**
+
+```bash
+docker run -it --rm -p 9696:9696 blockbuster-prediction-service
+```
+
+Test the containerized endpoint in a separate terminal:
+
+```bash
+curl -X GET http://localhost:9696/health
 ```
 
 ---
