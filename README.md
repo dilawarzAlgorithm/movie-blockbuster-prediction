@@ -67,6 +67,8 @@ Models were evaluated using **ROC-AUC** due to class imbalance:
 | **Random Forest**       | Tuned `n_estimators` (106), `max_depth` (5), `min_samples_leaf` (1), `class_weight='balanced'`       | ~0.840             |
 | **XGboost**             | Tuned `eta` (0.1), `max_depth` (3), `min_child_weight` (1), `gamma` (7.0), `class_weight='balanced'` | **~0.848**         |
 
+**Final Holdout Test ROC-AUC:** `0.8411` (trained on `train + val`, evaluated once on `test`).
+
 ---
 
 ## 🛠️ Project Structure
