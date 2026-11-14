@@ -8,9 +8,23 @@ This project was built as part of the **Machine Learning Zoomcamp (2026 Cohort)*
 
 ## 📌 Problem Description
 
-Film production studios and distributors face immense financial risks when greenlighting new projects. Marketing budgets and resource allocations heavily depend on estimating a movie's commercial potential early in production.
+### The Problem
 
-This project addresses this challenge by providing a **Machine Learning Web Service API** that calculates the probability of a film becoming a blockbuster based on information available _prior_ to its release.
+Film production studios, financiers, and distributors face immense financial risk when greenlighting new projects. Production budgets often run into tens or hundreds of millions of dollars, yet box office returns are highly skewed—only a small fraction of releases achieve commercial blockbuster status. Traditional greenlighting relies heavily on subjective intuition, making early-stage capital and marketing allocation prone to costly misjudgments.
+
+### Who This Solution Is For
+
+- **Studio Executives & Greenlight Committees:** Evaluate script packages and proposed production budgets objectively before committing capital.
+- **Independent Producers & Film Financiers:** Assess commercial upside and downside risk when structuring co-financing or seeking backing.
+- **Distribution & Acquisition Teams:** Estimate the commercial ceiling of upcoming titles to guide distribution deals and release window strategies.
+- **Marketing & P&A (Prints & Advertising) Strategists:** Calibrate promotional spend based on a film's predicted probability of breaking out as a mainstream hit.
+
+### How the Solution Is Used
+
+This project exposes a **RESTful Machine Learning Web Service API** (built with FastAPI and XGBoost) that predicts a movie's probability of becoming a blockbuster using strictly **pre-release attributes**:
+
+1. **Interactive Scenario Planning (`/docs`):** Decision-makers can use the browser-based Swagger UI to run rapid "what-if" simulations—adjusting production budget, runtime, genre, or release year to see how those changes impact commercial blockbuster odds.
+2. **Automated Pipeline Integration (`POST /predict`):** Internal production dashboards, financial modeling spreadsheets, or slate-planning tools can send JSON payloads directly to the prediction endpoint to score multiple candidate projects programmatically.
 
 ### Target Definition
 
@@ -65,7 +79,7 @@ Models were evaluated using **ROC-AUC** due to class imbalance:
 | **Logistic Regression** | `class_weight='balanced'`, scaled features                                                           | ~0.841             |
 | **Decision Tree**       | Tuned `max_depth` (5) & `min_samples_leaf` (1)                                                       | ~0.805             |
 | **Random Forest**       | Tuned `n_estimators` (106), `max_depth` (5), `min_samples_leaf` (1), `class_weight='balanced'`       | ~0.840             |
-| **XGboost**             | Tuned `eta` (0.1), `max_depth` (3), `min_child_weight` (1), `gamma` (7.0), `class_weight='balanced'` | **~0.848**         |
+| **XGBoost**             | Tuned `eta` (0.1), `max_depth` (3), `min_child_weight` (1), `gamma` (7.0), `class_weight='balanced'` | **~0.848**         |
 
 **Final Holdout Test ROC-AUC:** `0.8411` (trained on `train + val`, evaluated once on `test`).
 
@@ -174,8 +188,8 @@ curl -X GET http://localhost:9696/health
 
 Response:
 
-```bash
-{"status": "OK"}
+```json
+{ "status": "OK" }
 ```
 
 **Prediction Endpoint (`POST /predict`)**
@@ -194,14 +208,14 @@ curl -X POST http://localhost:9696/predict \
 
 Expected JSON Response:
 
-```bash
+```json
 {
   "blockbuster_probability": 0.7839,
   "is_blockbuster": true
 }
 ```
 
-> Interactive Documentation: Interactive OpenAPI Swagger documentation can also be accessed by visiting http://localhost:9696/docs in your browser.
+> **Interactive Documentation:** Interactive OpenAPI Swagger documentation can also be accessed by visiting http://localhost:9696/docs in your browser.
 
 ### 6. Running JupyterLab
 
@@ -236,3 +250,49 @@ curl -X GET http://localhost:9696/health
 ```
 
 ---
+
+## ☁️ Cloud Deployment & Live API
+
+This containerized service is deployed on **Render** using its native Docker runtime.
+
+### Live Interactive Testing
+
+- **Swagger UI (Interactive Docs):** [https://movie-blockbuster-prediction-api.onrender.com/docs](https://movie-blockbuster-prediction-api.onrender.com/docs)
+- **Base Service URL:** `https://movie-blockbuster-prediction-api.onrender.com`
+
+#### Test the Live Deployment via `curl`
+
+**1. Check Service Health:**
+
+```bash
+curl -X GET https://movie-blockbuster-prediction-api.onrender.com/health
+```
+
+**2. Request a Live Blockbuster Prediction:**
+
+```bash
+curl -X POST https://movie-blockbuster-prediction-api.onrender.com/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "year": 2024,
+    "decade": 2020,
+    "genre": "Sci-Fi",
+    "runtime_min": 140.0,
+    "budget_usd": 180000000.0
+  }'
+```
+
+> ⏳ **Cold Start Note:** Because the service runs on Render's free tier, the container automatically spins down after 15 minutes of inactivity. The first request after an idle period may take **30–50 seconds** while the container wakes up.
+
+### How to Deploy Your Own Instance on Render
+
+1. **Push Code to GitHub:** Ensure `Dockerfile`, `pyproject.toml`, `uv.lock`, `train.py`, `predict.py`, `serve.py`, and `data/movie_blockbusters.csv` are committed to your GitHub repository.
+2. **Create a New Web Service on Render:**
+   - Log in to [dashboard.render.com](https://dashboard.render.com) and click **New +** → **Web Service**.
+   - Connect your GitHub repository (`dilawarzAlgorithm/movie-blockbuster-prediction`).
+3. **Configure Build & Runtime Settings:**
+   - **Language / Runtime:** Select **Docker** (Render automatically detects the `Dockerfile` in the repository root).
+   - **Branch:** `main`
+   - **Instance Type:** Select **Free** (or any paid tier for zero cold starts).
+   - **Port Detection:** `serve.py` binds to `0.0.0.0:9696` and the `Dockerfile` declares `EXPOSE 9696`, allowing Render to automatically detect and route public HTTPS traffic to port `9696` with no extra environment variables required.
+4. **Deploy:** Click **Deploy Web Service**. Render builds the Docker image (installing pinned dependencies via `uv` and executing `train.py` to generate `model.bin`), starts the FastAPI server, and exposes the live HTTPS endpoint.
